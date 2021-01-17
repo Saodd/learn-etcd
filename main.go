@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
+	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
+	"google.golang.org/grpc"
 	"log"
 	"time"
 )
@@ -35,4 +37,28 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("释放锁")
+}
+
+func main_grpc() {
+	var opts = []grpc.DialOption{
+		grpc.WithInsecure(), // 本地不安全连接必须指定这个
+	}
+	conn, err := grpc.Dial("10.0.6.239:12379", opts...)
+	if err != nil {
+		log.Fatal("连接失败: ", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewKVClient(conn)
+	req := &pb.RangeRequest{
+		Key: []byte("some_key"),
+	}
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*2)
+	resp, err := client.Range(ctx, req)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	for _, kv := range resp.Kvs {
+		log.Println(string(kv.Key), string(kv.Value))
+	}
 }
